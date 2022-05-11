@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"image/color"
 	"log"
 	"os"
@@ -11,54 +10,35 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/hatajoe/rogueliketutorials/resources/fonts"
 )
 
 const (
-	screenWidth  int = 640
-	screenHeight int = 480
+	screenWidth  int = 800
+	screenHeight int = 500
+	tileSize     int = 10
 )
 
-type Game struct{
+type Game struct {
 	keys []ebiten.Key
 }
 
 func (g *Game) Update() error {
 	g.keys = inpututil.AppendPressedKeys(g.keys[:0])
-	action := eventHandler.KeyDown(g.keys)
-	switch act := action.(type) {
-	case MovementAction:
-		player.X += act.Dx
-		player.Y += act.Dy
-	case EscapeAction:
-		return regularTermination
-	default:
-		return nil
-	}
-
-	return nil
+	return engine.HandleEvent(g.keys)
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	text.Draw(screen, "@", qbicfeetFont, player.X, player.Y, color.White)
+	engine.Render(screen)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return 320, 240
-}
-
-type Player struct {
-	X int
-	Y int
+	return 800, 500
 }
 
 var (
 	qbicfeetFont font.Face
-	eventHandler *EventHandler
-	player       *Player
-
-	regularTermination = errors.New("regular termination")
+	engine       *Engine
 )
 
 func init() {
@@ -68,7 +48,7 @@ func init() {
 	}
 
 	qbicfeetFont, err = opentype.NewFace(tt, &opentype.FaceOptions{
-		Size:    10,
+		Size:    float64(tileSize),
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
@@ -76,11 +56,38 @@ func init() {
 		log.Fatal(err)
 	}
 
-	eventHandler = &EventHandler{}
+	eventHandler := &EventHandler{}
+	gameMap := NewGameMap(screenWidth, screenHeight-50)
+	player := &Entity{
+		x:    int(screenWidth / 2),
+		y:    int(screenHeight / 2),
+		char: "@",
+		color: color.RGBA{
+			R: 255,
+			G: 255,
+			B: 255,
+			A: 255,
+		},
+	}
+	npc := &Entity{
+		x:    int(screenWidth/2) - 50,
+		y:    int(screenHeight / 2),
+		char: "@",
+		color: color.RGBA{
+			R: 255,
+			G: 255,
+			B: 0,
+			A: 255,
+		},
+	}
+	entities := []*Entity{npc, player}
 
-	player = &Player{
-		X: int(screenWidth / 4),
-		Y: int(screenHeight / 4),
+	engine = &Engine{
+		entities:     entities,
+		eventHandler: eventHandler,
+		GameMap:      gameMap,
+		player:       player,
+		font:         qbicfeetFont,
 	}
 }
 
