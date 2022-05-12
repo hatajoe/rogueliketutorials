@@ -30,6 +30,11 @@ func (e Entity) Y() int {
 	return e.y
 }
 
+func (e *Entity) SetPostion(pos [2]int) {
+	e.x = pos[0]
+	e.y = pos[1]
+}
+
 func (e Entity) Char() string {
 	return e.char
 }

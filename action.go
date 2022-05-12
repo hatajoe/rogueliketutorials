@@ -30,14 +30,14 @@ type MovementAction struct {
 }
 
 func (a MovementAction) Perform(engine *Engine, entity *Entity) error {
-		destX := entity.X() + a.Dx * 10
-		destY := entity.Y() + a.Dy * 10
+		destX := entity.X() + a.Dx
+		destY := entity.Y() + a.Dy
 		if !engine.GameMap.InBounds(destX, destY) {
 			return nil
 		}
-		if !engine.GameMap.Walkable(destX/10, destY/10) {
+		if !engine.GameMap.Walkable(destX, destY) {
 			return nil
 		}
-		entity.Move(a.Dx * 10, a.Dy * 10)
+		entity.Move(a.Dx, a.Dy)
 		return nil
 }

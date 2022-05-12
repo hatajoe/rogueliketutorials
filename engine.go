@@ -25,12 +25,12 @@ func (e *Engine) HandleEvent(keys []ebiten.Key) error {
 }
 
 func (e *Engine) Render(screen *ebiten.Image) {
-	for w, ts := range e.GameMap.Tiles() {
+	for w, ts := range e.GameMap.Tiles {
 		for h, t := range ts {
 			text.Draw(screen, t.Char(), e.font, w*10, h*10, t.Color())
 		}
 	}
 	for _, entity := range e.entities {
-		text.Draw(screen, entity.Char(), e.font, entity.X(), entity.Y(), entity.Color())
+		text.Draw(screen, entity.Char(), e.font, entity.X()*10, entity.Y()*10, entity.Color())
 	}
 }

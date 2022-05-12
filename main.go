@@ -14,9 +14,13 @@ import (
 )
 
 const (
-	screenWidth  int = 800
-	screenHeight int = 500
-	tileSize     int = 10
+	screenWidth    int = 800
+	screenHeight   int = 500
+	screenTileSize int = 10
+
+	roomMaxSize int = 10
+	roomMinSize int = 6
+	maxRooms    int = 30
 )
 
 type Game struct {
@@ -48,7 +52,7 @@ func init() {
 	}
 
 	qbicfeetFont, err = opentype.NewFace(tt, &opentype.FaceOptions{
-		Size:    float64(tileSize),
+		Size:    float64(screenTileSize),
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
@@ -57,10 +61,9 @@ func init() {
 	}
 
 	eventHandler := &EventHandler{}
-	gameMap := NewGameMap(screenWidth, screenHeight-50)
 	player := &Entity{
-		x:    int(screenWidth / 2),
-		y:    int(screenHeight / 2),
+		x:    int(screenWidth / 10 / 2),
+		y:    int(screenHeight / 10 / 2),
 		char: "@",
 		color: color.RGBA{
 			R: 255,
@@ -70,8 +73,8 @@ func init() {
 		},
 	}
 	npc := &Entity{
-		x:    int(screenWidth/2) - 50,
-		y:    int(screenHeight / 2),
+		x:    int(screenWidth/10/2) - 5,
+		y:    int(screenHeight / 10 / 2),
 		char: "@",
 		color: color.RGBA{
 			R: 255,
@@ -81,6 +84,15 @@ func init() {
 		},
 	}
 	entities := []*Entity{npc, player}
+
+	gameMap := GenerateDungeon(
+		maxRooms,
+		roomMinSize,
+		roomMaxSize,
+		screenWidth/10,
+		(screenHeight-50)/10,
+		player,
+	)
 
 	engine = &Engine{
 		entities:     entities,
@@ -93,7 +105,7 @@ func init() {
 
 func main() {
 	ebiten.SetWindowSize(screenWidth, screenHeight)
-	ebiten.SetWindowTitle("Hello, World!")
+	ebiten.SetWindowTitle("Yet Another Roguelike Tutorial")
 
 	if err := ebiten.RunGame(&Game{}); err != nil && err != regularTermination {
 		log.Fatal(err)
