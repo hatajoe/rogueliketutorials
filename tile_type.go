@@ -8,7 +8,9 @@ type Tile struct {
 	walkable    bool
 	transparent bool
 	char        string
-	color       color.RGBA
+	dark        color.RGBA
+	light       color.RGBA
+	shroud      color.RGBA
 }
 
 func NewFloor() *Tile {
@@ -16,7 +18,9 @@ func NewFloor() *Tile {
 		walkable:    true,
 		transparent: true,
 		char:        string(0xdb),
-		color:       color.RGBA{R: 50, G: 50, B: 150, A: 255},
+		dark:        color.RGBA{R: 50, G: 50, B: 150, A: 255},
+		light:       color.RGBA{R: 200, G: 180, B: 50, A: 255},
+		shroud:      color.RGBA{R: 0, G: 0, B: 0, A: 255},
 	}
 }
 
@@ -25,7 +29,9 @@ func NewWall() *Tile {
 		walkable:    false,
 		transparent: false,
 		char:        string(0xdb),
-		color:       color.RGBA{R: 0, G: 0, B: 100, A: 255},
+		dark:        color.RGBA{R: 0, G: 0, B: 100, A: 255},
+		light:       color.RGBA{R: 130, G: 110, B: 50, A: 255},
+		shroud:      color.RGBA{R: 0, G: 0, B: 0, A: 255},
 	}
 }
 
@@ -41,6 +47,14 @@ func (t Tile) Char() string {
 	return t.char
 }
 
-func (t Tile) Color() color.RGBA {
-	return t.color
+func (t Tile) Dark() color.RGBA {
+	return t.dark
+}
+
+func (t Tile) Light() color.RGBA {
+	return t.light
+}
+
+func (t Tile) Shroud() color.RGBA {
+	return t.shroud
 }

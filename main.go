@@ -94,13 +94,7 @@ func init() {
 		player,
 	)
 
-	engine = &Engine{
-		entities:     entities,
-		eventHandler: eventHandler,
-		GameMap:      gameMap,
-		player:       player,
-		font:         qbicfeetFont,
-	}
+	engine = NewEngine(entities, eventHandler, gameMap, player, qbicfeetFont)
 }
 
 func main() {
