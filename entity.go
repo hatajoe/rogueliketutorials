@@ -5,21 +5,31 @@ import (
 )
 
 type Entity struct {
-	x     int
-	y     int
-	char  string
-	color color.RGBA
-	move  bool
-	act   MovementAction
+	x              int
+	y              int
+	char           string
+	color          color.RGBA
+	Name           string
+	BlocksMovement bool
 }
 
-func NewEntity(x, y int, char string, col color.RGBA) *Entity {
+func NewEntity(x, y int, char string, col color.RGBA, name string, blocksMovement bool) *Entity {
 	return &Entity{
-		x:     x,
-		y:     y,
-		char:  char,
-		color: col,
+		x:              x,
+		y:              y,
+		char:           char,
+		color:          col,
+		Name:           name,
+		BlocksMovement: blocksMovement,
 	}
+}
+
+func (e Entity) Spawn(gameMap *GameMap, x, y int) Entity {
+	clone := e
+	clone.x = x
+	clone.y = y
+	gameMap.Entities = append(gameMap.Entities, &clone)
+	return clone
 }
 
 func (e Entity) X() int {

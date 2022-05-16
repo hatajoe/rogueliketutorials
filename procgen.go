@@ -7,42 +7,42 @@ import (
 )
 
 type rectangularRoom struct {
-	x1 int
-	y1 int
-	x2 int
-	y2 int
+	X1 int
+	Y1 int
+	X2 int
+	Y2 int
 }
 
 func newRectangularRoom(x, y, width, height int) rectangularRoom {
 	return rectangularRoom{
-		x1: x,
-		y1: y,
-		x2: x + width,
-		y2: y + height,
+		X1: x,
+		Y1: y,
+		X2: x + width,
+		Y2: y + height,
 	}
 }
 
 func (r rectangularRoom) Center() [2]int {
-	centerX := int((r.x1 + r.x2) / 2)
-	centerY := int((r.y1 + r.y2) / 2)
+	centerX := int((r.X1 + r.X2) / 2)
+	centerY := int((r.Y1 + r.Y2) / 2)
 	return [2]int{centerX, centerY}
 }
 
 func (r rectangularRoom) Inner() ([2]int, [2]int) {
-	return [2]int{r.x1 + 1, r.x2}, [2]int{r.y1 + 1, r.y2}
+	return [2]int{r.X1 + 1, r.X2}, [2]int{r.Y1 + 1, r.Y2}
 }
 
 func (r rectangularRoom) Intersects(other rectangularRoom) bool {
-	return r.x1 <= other.x2 &&
-		r.x2 >= other.x1 &&
-		r.y1 <= other.y2 &&
-		r.y2 >= other.y1
+	return r.X1 <= other.X2 &&
+		r.X2 >= other.X1 &&
+		r.Y1 <= other.Y2 &&
+		r.Y2 >= other.Y1
 }
 
-func GenerateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight int, player *Entity) *GameMap {
+func GenerateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight, maxMonsterPerRoom int, player *Entity) *GameMap {
 	rand.Seed(time.Now().UnixNano())
 
-	dungeon := NewGameMap(mapWidth, mapHeight)
+	dungeon := NewGameMap(mapWidth, mapHeight, []*Entity{player})
 
 	rooms := []rectangularRoom{}
 	for i := 0; i < maxRooms; i++ {
@@ -80,6 +80,9 @@ func GenerateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight int
 				dungeon.Tiles[w][h] = NewFloor()
 			}
 		}
+
+		placeEntities(newRoom, dungeon, maxMonsterPerRoom)
+
 		rooms = append(rooms, newRoom)
 	}
 
@@ -146,4 +149,23 @@ func bresenham(x1, y1, x2, y2 int) chan [2]int {
 		}
 	}()
 	return ch
+}
+
+func placeEntities(room rectangularRoom, dungeon *GameMap, maximumMonsters int) {
+	numberOfMonsters := rand.Intn(maximumMonsters+1)
+	for i := 0; i < numberOfMonsters; i++ {
+		x := rand.Intn((room.X2 - 1) - (room.X1 + 1)) + room.X1 + 1
+		y := rand.Intn((room.Y2 - 1) - (room.Y1 + 1)) + room.Y1 + 1
+
+		for _, e := range dungeon.Entities {
+			if !(e.X() == x && e.Y() == y) {
+				if rand.Float32() < 0.8 {
+					NewOrc().Spawn(dungeon, x, y)
+				} else {
+					NewTroll().Spawn(dungeon, x, y)
+				}
+				break
+			}
+		}
+	}
 }

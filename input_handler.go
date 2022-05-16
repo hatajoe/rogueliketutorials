@@ -8,27 +8,26 @@ import (
 type EventHandler struct{}
 
 func (e *EventHandler) KeyDown(keys []ebiten.Key) Action {
-	ma := MovementAction{}
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
 			continue
 		}
 		switch p {
 		case ebiten.KeyArrowUp:
-			ma.Dy -= 1
+			return BumpAction{Dx: 0, Dy: -1}
 		case ebiten.KeyArrowDown:
-			ma.Dy += 1
+			return BumpAction{Dx: 0, Dy: 1}
 		case ebiten.KeyArrowLeft:
-			ma.Dx -= 1
+			return BumpAction{Dx: -1, Dy: 0}
 		case ebiten.KeyArrowRight:
-			ma.Dx += 1
+			return BumpAction{Dx: 1, Dy: 0}
 		case ebiten.KeyEscape:
 			return EscapeAction{}
 		default:
 			return NoneAction{}
 		}
 	}
-	return ma
+	return NoneAction{}
 }
 
 func repeatingKeyPressed(key ebiten.Key) bool {

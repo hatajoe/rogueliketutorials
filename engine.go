@@ -1,24 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/text"
 	"golang.org/x/image/font"
 )
 
 type Engine struct {
-	entities     []*Entity
 	eventHandler *EventHandler
 	GameMap      *GameMap
 	player       *Entity
 	font         font.Face
 }
 
-func NewEngine(es []*Entity, eh *EventHandler, gm *GameMap, pl *Entity, font font.Face) *Engine {
+func NewEngine(eh *EventHandler, gm *GameMap, pl *Entity, font font.Face) *Engine {
 	engine := &Engine{
-		entities:     es,
 		eventHandler: eh,
 		GameMap:      gm,
 		player:       pl,
@@ -27,6 +25,15 @@ func NewEngine(es []*Entity, eh *EventHandler, gm *GameMap, pl *Entity, font fon
 	engine.UpdateFov()
 
 	return engine
+}
+
+func (e *Engine) HandleEnemyTurns() {
+	for _, entity := range e.GameMap.Entities {
+		if entity == e.player {
+			continue
+		}
+		fmt.Printf("The %s wonders when it will get to take a real turn.\n", entity.Name)
+	}
 }
 
 func (e *Engine) HandleEvent(keys []ebiten.Key) error {
@@ -38,26 +45,14 @@ func (e *Engine) HandleEvent(keys []ebiten.Key) error {
 		if err := act.Perform(e, e.player); err != nil {
 			return err
 		}
+		e.HandleEnemyTurns()
 		e.UpdateFov()
 	}
 	return nil
 }
 
 func (e *Engine) Render(screen *ebiten.Image) {
-	for w, ts := range e.GameMap.Tiles {
-		for h, t := range ts {
-			color := t.Shroud()
-			if e.GameMap.IsVisible(w, h) {
-				color = t.Light()
-			} else if e.GameMap.IsExplored(w, h) {
-				color = t.Dark()
-			}
-			text.Draw(screen, t.Char(), e.font, w*10, h*10, color)
-		}
-	}
-	for _, entity := range e.entities {
-		text.Draw(screen, entity.Char(), e.font, entity.X()*10, entity.Y()*10, entity.Color())
-	}
+	e.GameMap.Render(screen, e.font)
 }
 
 func (e *Engine) UpdateFov() {

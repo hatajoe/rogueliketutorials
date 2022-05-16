@@ -1,7 +1,6 @@
 package main
 
 import (
-	"image/color"
 	"log"
 	"os"
 
@@ -18,9 +17,10 @@ const (
 	screenHeight   int = 500
 	screenTileSize int = 10
 
-	roomMaxSize int = 10
-	roomMinSize int = 6
-	maxRooms    int = 30
+	roomMaxSize        int = 10
+	roomMinSize        int = 6
+	maxRooms           int = 30
+	maxMonstersPerRoom int = 2
 )
 
 type Game struct {
@@ -61,29 +61,7 @@ func init() {
 	}
 
 	eventHandler := &EventHandler{}
-	player := &Entity{
-		x:    int(screenWidth / 10 / 2),
-		y:    int(screenHeight / 10 / 2),
-		char: "@",
-		color: color.RGBA{
-			R: 255,
-			G: 255,
-			B: 255,
-			A: 255,
-		},
-	}
-	npc := &Entity{
-		x:    int(screenWidth/10/2) - 5,
-		y:    int(screenHeight / 10 / 2),
-		char: "@",
-		color: color.RGBA{
-			R: 255,
-			G: 255,
-			B: 0,
-			A: 255,
-		},
-	}
-	entities := []*Entity{npc, player}
+	player := NewPlayer()
 
 	gameMap := GenerateDungeon(
 		maxRooms,
@@ -91,10 +69,11 @@ func init() {
 		roomMaxSize,
 		screenWidth/10,
 		(screenHeight-50)/10,
+		maxMonstersPerRoom,
 		player,
 	)
 
-	engine = NewEngine(entities, eventHandler, gameMap, player, qbicfeetFont)
+	engine = NewEngine(eventHandler, gameMap, player, qbicfeetFont)
 }
 
 func main() {
