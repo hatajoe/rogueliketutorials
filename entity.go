@@ -4,56 +4,71 @@ import (
 	"image/color"
 )
 
-type Entity struct {
-	x              int
-	y              int
-	char           string
-	color          color.RGBA
+type entity struct {
+	GameMap        *gameMap
+	X              int
+	Y              int
+	Char           string
+	Color          color.RGBA
 	Name           string
 	BlocksMovement bool
+	RenderOrder    RenderOrder
 }
 
-func NewEntity(x, y int, char string, col color.RGBA, name string, blocksMovement bool) *Entity {
-	return &Entity{
-		x:              x,
-		y:              y,
-		char:           char,
-		color:          col,
-		Name:           name,
-		BlocksMovement: blocksMovement,
+type actor struct {
+	*entity
+	AI      *hostileEnemy
+	Fighter *fighter
+}
+
+func newActor(x, y int, char string, color color.RGBA, name string, ai *hostileEnemy, fighter *fighter) *actor {
+	a := &actor{
+		entity: &entity{
+			X:              x,
+			Y:              y,
+			Char:           char,
+			Color:          color,
+			Name:           name,
+			BlocksMovement: true,
+			RenderOrder:    RenderOrder_Actor,
+		},
+		AI:      ai,
+		Fighter: fighter,
 	}
+	return a
 }
 
-func (e Entity) Spawn(gameMap *GameMap, x, y int) Entity {
+func (e actor) IsAlive() bool {
+	return e.Fighter.Entity.AI != nil
+}
+
+func (e actor) Spawn(gm *gameMap, x, y int) actor {
 	clone := e
-	clone.x = x
-	clone.y = y
-	gameMap.Entities = append(gameMap.Entities, &clone)
+	clone.X = x
+	clone.Y = y
+	clone.GameMap = gm
+	gm.Entities = append(gm.Entities, &clone)
 	return clone
 }
 
-func (e Entity) X() int {
-	return e.x
+func (e *actor) Place(x, y int, gm *gameMap) {
+	e.X = x
+	e.Y = y
+	if gm != nil {
+		if e.GameMap != nil {
+			e.GameMap.Entities = []*actor{}
+		}
+		e.GameMap = gm
+		gm.Entities = append(gm.Entities, e)
+	}
 }
 
-func (e Entity) Y() int {
-	return e.y
+func (e *actor) SetPostion(pos [2]int) {
+	e.X = pos[0]
+	e.Y = pos[1]
 }
 
-func (e *Entity) SetPostion(pos [2]int) {
-	e.x = pos[0]
-	e.y = pos[1]
-}
-
-func (e Entity) Char() string {
-	return e.char
-}
-
-func (e Entity) Color() color.RGBA {
-	return e.color
-}
-
-func (e *Entity) Move(dx, dy int) {
-	e.x += dx
-	e.y += dy
+func (e *actor) Move(dx, dy int) {
+	e.X += dx
+	e.Y += dy
 }

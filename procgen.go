@@ -22,10 +22,10 @@ func newRectangularRoom(x, y, width, height int) rectangularRoom {
 	}
 }
 
-func (r rectangularRoom) Center() [2]int {
+func (r rectangularRoom) Center() (int, int) {
 	centerX := int((r.X1 + r.X2) / 2)
 	centerY := int((r.Y1 + r.Y2) / 2)
-	return [2]int{centerX, centerY}
+	return centerX, centerY
 }
 
 func (r rectangularRoom) Inner() ([2]int, [2]int) {
@@ -39,10 +39,11 @@ func (r rectangularRoom) Intersects(other rectangularRoom) bool {
 		r.Y2 >= other.Y1
 }
 
-func GenerateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight, maxMonsterPerRoom int, player *Entity) *GameMap {
+func generateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight, maxMonsterPerRoom int, en *engine) *gameMap {
 	rand.Seed(time.Now().UnixNano())
 
-	dungeon := NewGameMap(mapWidth, mapHeight, []*Entity{player})
+	player := en.Player
+	dungeon := newGameMap(en, mapWidth, mapHeight, []*actor{player})
 
 	rooms := []rectangularRoom{}
 	for i := 0; i < maxRooms; i++ {
@@ -67,17 +68,20 @@ func GenerateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight, ma
 		wtup, htup := newRoom.Inner()
 		for w := wtup[0]; w < wtup[1]; w++ {
 			for h := htup[0]; h < htup[1]; h++ {
-				dungeon.Tiles[w][h] = NewFloor()
+				dungeon.Tiles[w][h] = newFloor()
 			}
 		}
 
 		if len(rooms) == 0 {
-			player.SetPostion(newRoom.Center())
+			px, py := newRoom.Center()
+			player.Place(px, py, dungeon)
 		} else {
-			ch := tunnelBetween(rooms[len(rooms)-1].Center(), newRoom.Center())
+			x1, y1 := rooms[len(rooms)-1].Center()
+			x2, y2 := newRoom.Center()
+			ch := tunnelBetween(x1, y1, x2, y2)
 			for tup := range ch {
 				w, h := tup[0], tup[1]
-				dungeon.Tiles[w][h] = NewFloor()
+				dungeon.Tiles[w][h] = newFloor()
 			}
 		}
 
@@ -89,10 +93,7 @@ func GenerateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight, ma
 	return dungeon
 }
 
-func tunnelBetween(start [2]int, end [2]int) chan [2]int {
-	x1, y1 := start[0], start[1]
-	x2, y2 := end[0], end[1]
-
+func tunnelBetween(x1, y1, x2, y2 int) chan [2]int {
 	cornerX, cornerY := x1, y2
 	if rand.Float32() < 0.5 {
 		cornerX, cornerY = x2, y1
@@ -151,18 +152,18 @@ func bresenham(x1, y1, x2, y2 int) chan [2]int {
 	return ch
 }
 
-func placeEntities(room rectangularRoom, dungeon *GameMap, maximumMonsters int) {
+func placeEntities(room rectangularRoom, dungeon *gameMap, maximumMonsters int) {
 	numberOfMonsters := rand.Intn(maximumMonsters+1)
 	for i := 0; i < numberOfMonsters; i++ {
 		x := rand.Intn((room.X2 - 1) - (room.X1 + 1)) + room.X1 + 1
 		y := rand.Intn((room.Y2 - 1) - (room.Y1 + 1)) + room.Y1 + 1
 
 		for _, e := range dungeon.Entities {
-			if !(e.X() == x && e.Y() == y) {
+			if !(e.X == x && e.Y == y) {
 				if rand.Float32() < 0.8 {
-					NewOrc().Spawn(dungeon, x, y)
+					newOrc().Spawn(dungeon, x, y)
 				} else {
-					NewTroll().Spawn(dungeon, x, y)
+					newTroll().Spawn(dungeon, x, y)
 				}
 				break
 			}

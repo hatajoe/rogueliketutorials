@@ -29,11 +29,11 @@ type Game struct {
 
 func (g *Game) Update() error {
 	g.keys = inpututil.AppendPressedKeys(g.keys[:0])
-	return engine.HandleEvent(g.keys)
+	return gameEngine.EventHandler.HandleEvent(g.keys)
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	engine.Render(screen)
+	gameEngine.Render(screen)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -42,7 +42,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 
 var (
 	qbicfeetFont font.Face
-	engine       *Engine
+	gameEngine   *engine
 )
 
 func init() {
@@ -60,20 +60,19 @@ func init() {
 		log.Fatal(err)
 	}
 
-	eventHandler := &EventHandler{}
-	player := NewPlayer()
+	player := newPlayer()
 
-	gameMap := GenerateDungeon(
+	gameEngine = NewEngine(player, qbicfeetFont)
+	gameEngine.GameMap = generateDungeon(
 		maxRooms,
 		roomMinSize,
 		roomMaxSize,
 		screenWidth/10,
 		(screenHeight-50)/10,
 		maxMonstersPerRoom,
-		player,
+		gameEngine,
 	)
-
-	engine = NewEngine(eventHandler, gameMap, player, qbicfeetFont)
+	gameEngine.UpdateFov()
 }
 
 func main() {

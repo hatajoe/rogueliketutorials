@@ -2,44 +2,86 @@ package main
 
 import "image/color"
 
-func NewPlayer() *Entity {
-	return &Entity{
-		char: "@",
-		color: color.RGBA{
+func newPlayer() *actor {
+	e := newActor(
+		0,
+		0,
+		"@",
+		color.RGBA{
 			R: 255,
 			G: 255,
 			B: 255,
 			A: 255,
 		},
-		Name:           "Player",
-		BlocksMovement: true,
+		"Player",
+		nil,
+		nil,
+	)
+	e.AI = NewHostileEnemy(e)
+	e.Fighter = &fighter{
+		baseComponent: &baseComponent{
+			Entity: e,
+		},
+		MaxHP:   30,
+		HP:      30,
+		Defense: 2,
+		Power:   5,
 	}
+	return e
 }
 
-func NewOrc() *Entity {
-	return &Entity{
-		char: "o",
-		color: color.RGBA{
+func newOrc() *actor {
+	e := newActor(
+		0,
+		0,
+		"o",
+		color.RGBA{
 			R: 63,
 			G: 127,
 			B: 63,
 			A: 255,
 		},
-		Name:           "Orc",
-		BlocksMovement: true,
+		"Orc",
+		nil,
+		nil,
+	)
+	e.AI = NewHostileEnemy(e)
+	e.Fighter = &fighter{
+		baseComponent: &baseComponent{
+			Entity: e,
+		},
+		MaxHP:   10,
+		HP:      10,
+		Defense: 0,
+		Power:   3,
 	}
+	return e
 }
 
-func NewTroll() *Entity {
-	return &Entity{
-		char: "T",
-		color: color.RGBA{
+func newTroll() *actor {
+	e := newActor(
+		0,
+		0,
+		"T",
+		color.RGBA{
 			R: 0,
 			G: 127,
 			B: 0,
 			A: 255,
 		},
-		Name:           "Troll",
-		BlocksMovement: true,
+		"Troll",
+		nil,
+		nil,
+	)
+	e.AI = NewHostileEnemy(e)
+	e.Fighter = &fighter{
+		baseComponent: &baseComponent{
+			Entity: e,
+		},
+		MaxHP:   16,
+		HP:      16,
+		Defense: 1,
+		Power:   4,
 	}
+	return e
 }

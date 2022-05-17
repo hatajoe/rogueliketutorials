@@ -2,66 +2,57 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"math"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	ebiten "github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text"
 	"golang.org/x/image/font"
 )
 
-type Engine struct {
-	eventHandler *EventHandler
-	GameMap      *GameMap
-	player       *Entity
-	font         font.Face
+type engine struct {
+	GameMap      *gameMap
+	EventHandler eventHandler
+	Player       *actor
+	Font         font.Face
 }
 
-func NewEngine(eh *EventHandler, gm *GameMap, pl *Entity, font font.Face) *Engine {
-	engine := &Engine{
-		eventHandler: eh,
-		GameMap:      gm,
-		player:       pl,
-		font:         font,
+func NewEngine(pl *actor, font font.Face) *engine {
+	e := &engine{
+		Player: pl,
+		Font:   font,
 	}
-	engine.UpdateFov()
-
-	return engine
+	e.EventHandler = &mainGameEventHandler{engine: e}
+	return e
 }
 
-func (e *Engine) HandleEnemyTurns() {
+func (e *engine) HandleEnemyTurns() error {
 	for _, entity := range e.GameMap.Entities {
-		if entity == e.player {
+		if entity == e.Player {
 			continue
 		}
-		fmt.Printf("The %s wonders when it will get to take a real turn.\n", entity.Name)
-	}
-}
-
-func (e *Engine) HandleEvent(keys []ebiten.Key) error {
-	action := e.eventHandler.KeyDown(keys)
-	switch act := action.(type) {
-	case NoneAction:
-		return nil
-	default:
-		if err := act.Perform(e, e.player); err != nil {
-			return err
+		if entity.IsAlive() {
+			if err := entity.AI.Perform(); err != nil {
+				return err
+			}
 		}
-		e.HandleEnemyTurns()
-		e.UpdateFov()
 	}
 	return nil
 }
 
-func (e *Engine) Render(screen *ebiten.Image) {
-	e.GameMap.Render(screen, e.font)
+func (e engine) Render(screen *ebiten.Image) {
+	e.GameMap.Render(screen, e.Font)
+
+	text.Draw(screen, fmt.Sprintf("HP: %d/%d", e.Player.Fighter.HP, e.Player.Fighter.MaxHP), e.Font, 10, 470, color.RGBA{R: 255, G: 255, B: 255, A: 255})
 }
 
-func (e *Engine) UpdateFov() {
+func (e *engine) UpdateFov() {
 	for w, wv := range e.GameMap.Visible {
 		for h := range wv {
 			e.GameMap.Visible[w][h] = false
 		}
 	}
-	e.computeFov(e.player.X(), e.player.Y(), 8)
+	e.computeFov(e.Player.X, e.Player.Y, 8)
 	for w, v := range e.GameMap.Visible {
 		for h := range v {
 			if e.GameMap.Visible[w][h] {
@@ -72,7 +63,7 @@ func (e *Engine) UpdateFov() {
 }
 
 // https://github.com/norendren/go-fov/blob/master/fov/fov.go
-func (e *Engine) computeFov(x, y, radius int) {
+func (e *engine) computeFov(x, y, radius int) {
 	e.GameMap.Visible[x][y] = true
 
 	for i := 0; i < 8; i++ {
@@ -80,7 +71,7 @@ func (e *Engine) computeFov(x, y, radius int) {
 	}
 }
 
-func (e *Engine) fov(x, y, dist int, lowSlope, highSlope float64, oct, rad int) {
+func (e *engine) fov(x, y, dist int, lowSlope, highSlope float64, oct, rad int) {
 	if dist > rad {
 		return
 	}
