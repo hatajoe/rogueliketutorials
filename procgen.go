@@ -153,10 +153,10 @@ func bresenham(x1, y1, x2, y2 int) chan [2]int {
 }
 
 func placeEntities(room rectangularRoom, dungeon *gameMap, maximumMonsters int) {
-	numberOfMonsters := rand.Intn(maximumMonsters+1)
+	numberOfMonsters := rand.Intn(maximumMonsters + 1)
 	for i := 0; i < numberOfMonsters; i++ {
-		x := rand.Intn((room.X2 - 1) - (room.X1 + 1)) + room.X1 + 1
-		y := rand.Intn((room.Y2 - 1) - (room.Y1 + 1)) + room.Y1 + 1
+		x := rand.Intn((room.X2-1)-(room.X1+1)) + room.X1 + 1
+		y := rand.Intn((room.Y2-1)-(room.Y1+1)) + room.Y1 + 1
 
 		for _, e := range dungeon.Entities {
 			if !(e.X == x && e.Y == y) {

@@ -22,12 +22,12 @@ func (c *fighter) SetHP(val int) {
 }
 
 func (c *fighter) Die() {
-	deathMessage := ""
+	deathMessage := fmt.Sprintf("%s is dead!", c.Entity.Name)
+	deathMessageColor := ColorEnemyDie
 	if c.Entity == c.Engine().Player {
 		deathMessage = "You died!"
-		c.Engine().EventHandler = &gameOverEventHandler{engine: c.Engine()}
-	} else {
-		deathMessage = fmt.Sprintf("%s is dead!", c.Entity.Name)
+		deathMessageColor = ColorPlayerDie
+		c.Engine().EventHandler = &gameOverEventHandler{eventHandlerBase{engine: c.Engine()}}
 	}
 
 	c.Entity.Char = "%"
@@ -37,5 +37,5 @@ func (c *fighter) Die() {
 	c.Entity.Name = fmt.Sprintf("remains of %s", c.Entity.Name)
 	c.Entity.RenderOrder = RenderOrder_Corpse
 
-	fmt.Println(deathMessage)
+	c.Engine().MessageLog.AddMessage(deathMessage, deathMessageColor, true)
 }

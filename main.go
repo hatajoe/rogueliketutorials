@@ -17,6 +17,8 @@ const (
 	screenHeight   int = 500
 	screenTileSize int = 10
 
+	mapWidth           int = 80
+	mapHeight          int = 43
 	roomMaxSize        int = 10
 	roomMinSize        int = 6
 	maxRooms           int = 30
@@ -33,11 +35,11 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	gameEngine.Render(screen)
+	gameEngine.EventHandler.OnRender(screen)
 }
 
-func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return 800, 500
+func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+	return screenWidth, screenHeight
 }
 
 var (
@@ -73,6 +75,11 @@ func init() {
 		gameEngine,
 	)
 	gameEngine.UpdateFov()
+	gameEngine.MessageLog.AddMessage(
+		"Hello and welcome, adventure, to yet another dungeon!",
+		ColorWelcomText,
+		true,
+	)
 }
 
 func main() {

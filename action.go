@@ -70,11 +70,23 @@ func (a meleeAction) Perform() error {
 	damage := a.Entity.Fighter.Power - target.Fighter.Defense
 
 	attackDesc := fmt.Sprintf("%s attacks %s", a.Entity.Name, target.Name)
+	attackColor := ColorEnemyAtk
+	if a.Entity == a.Engine().Player {
+		attackColor = ColorPlayerAtk
+	}
 	if damage > 0 {
-		fmt.Printf("%s for %d hit points.\n", attackDesc, damage)
+		a.Engine().MessageLog.AddMessage(
+			fmt.Sprintf("%s for %d hit points.", attackDesc, damage),
+			attackColor,
+			true,
+		)
 		target.Fighter.SetHP(target.Fighter.HP - damage)
 	} else {
-		fmt.Printf("%s but does no damage.\n", attackDesc)
+		a.Engine().MessageLog.AddMessage(
+			fmt.Sprintf("%s but does no damage.", attackDesc),
+			attackColor,
+			true,
+		)
 	}
 	return nil
 }

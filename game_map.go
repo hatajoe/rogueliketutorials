@@ -87,7 +87,7 @@ func (g gameMap) Render(screen *ebiten.Image, font font.Face) {
 		}
 	}
 	entities := g.Entities
-	sort.Slice(entities, func (i, j int) bool { return entities[i].RenderOrder < entities[i].RenderOrder })
+	sort.Slice(entities, func(i, j int) bool { return entities[i].RenderOrder < entities[i].RenderOrder })
 	for _, entity := range entities {
 		if g.IsVisible(entity.X, entity.Y) {
 			text.Draw(screen, entity.Char, font, entity.X*10, entity.Y*10, entity.Color)

@@ -1,20 +1,19 @@
 package main
 
 import (
-	"fmt"
-	"image/color"
 	"math"
 
 	ebiten "github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/text"
 	"golang.org/x/image/font"
 )
 
 type engine struct {
-	GameMap      *gameMap
-	EventHandler eventHandler
-	Player       *actor
-	Font         font.Face
+	GameMap       *gameMap
+	EventHandler  eventHandler
+	MessageLog    *MessageLog
+	MouseLocation [2]int
+	Player        *actor
+	Font          font.Face
 }
 
 func NewEngine(pl *actor, font font.Face) *engine {
@@ -22,7 +21,9 @@ func NewEngine(pl *actor, font font.Face) *engine {
 		Player: pl,
 		Font:   font,
 	}
-	e.EventHandler = &mainGameEventHandler{engine: e}
+	e.EventHandler = &mainGameEventHandler{eventHandlerBase{engine: e}}
+	e.MessageLog = NewMessageLog()
+	e.MouseLocation = [2]int{0, 0}
 	return e
 }
 
@@ -43,7 +44,11 @@ func (e *engine) HandleEnemyTurns() error {
 func (e engine) Render(screen *ebiten.Image) {
 	e.GameMap.Render(screen, e.Font)
 
-	text.Draw(screen, fmt.Sprintf("HP: %d/%d", e.Player.Fighter.HP, e.Player.Fighter.MaxHP), e.Font, 10, 470, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+	e.MessageLog.Render(screen, e.Font, 21, 45, 40, 5)
+
+	RenderBar(screen, e.Font, e.Player.Fighter.HP, e.Player.Fighter.MaxHP, 200)
+
+	RenderNamesAtMouseLocation(screen, e.Font, 21, 44, &e)
 }
 
 func (e *engine) UpdateFov() {
@@ -89,7 +94,7 @@ func (e *engine) fov(x, y, dist int, lowSlope, highSlope float64, oct, rad int) 
 			if inGap {
 				e.fov(x, y, dist+1, lowSlope, (height-0.5)/float64(dist), oct, rad)
 			}
-			lowSlope = height / float64(dist)
+			lowSlope = (height + 0.5) / float64(dist)
 			inGap = false
 		} else {
 			inGap = true
