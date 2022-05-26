@@ -1,9 +1,13 @@
 package main
 
 type baseComponent struct {
-	Entity *actor
+	Parent entity
+}
+
+func (c *baseComponent) GameMap() *gameMap {
+	return c.Parent.GameMap()
 }
 
 func (c baseComponent) Engine() *engine {
-	return c.Entity.GameMap.Engine
+	return c.GameMap().Engine
 }

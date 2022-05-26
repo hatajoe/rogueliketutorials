@@ -33,7 +33,8 @@ func getNamesAtLocation(x, y int, gm *gameMap) string {
 		return ""
 	}
 	names := []string{}
-	for _, e := range gm.Entities {
+	for _, entity := range gm.Entities {
+		e := entity.Entity()
 		if e.X == x && e.Y == y {
 			names = append(names, e.Name)
 		}

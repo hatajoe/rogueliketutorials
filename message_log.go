@@ -54,6 +54,23 @@ func (m MessageLog) Render(screen *ebiten.Image, f font.Face, x, y, width, heigh
 	renderMessages(screen, f, x, y, width, height, m.Messages)
 }
 
+func wrap(str string, width int) chan string {
+	ch := make(chan string)
+
+	go func() {
+		defer close(ch)
+		wrapped := strings.Split(runewidth.Wrap(str, width), "\n")
+		for i := 0; i < len(wrapped)/2; i++ {
+			wrapped[i], wrapped[len(wrapped)-i-1] = wrapped[len(wrapped)-i-1], wrapped[i]
+		}
+		for _, line := range wrapped {
+			ch <- line
+		}
+	}()
+
+	return ch
+}
+
 func renderMessages(screen *ebiten.Image, f font.Face, x, y, width, height int, messages []*Message) {
 	yOffset := height - 1
 
@@ -65,11 +82,7 @@ func renderMessages(screen *ebiten.Image, f font.Face, x, y, width, height int, 
 		reversedMsg[i], reversedMsg[len(reversedMsg)-i-1] = reversedMsg[len(reversedMsg)-i-1], reversedMsg[i]
 	}
 	for _, msg := range reversedMsg {
-		wrapped := strings.Split(runewidth.Wrap(msg.FullText(), width), "\n")
-		for i := 0; i < len(wrapped)/2; i++ {
-			wrapped[i], wrapped[len(wrapped)-i-1] = wrapped[len(wrapped)-i-1], wrapped[i]
-		}
-		for _, line := range wrapped {
+		for line := range wrap(msg.FullText(), width) {
 			text.Draw(screen, line, f, x*10, (y+yOffset)*10, msg.Fg)
 			yOffset -= 1
 			if yOffset < 0 {

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"image/color"
 	"math"
 	"strings"
 
@@ -8,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/mattn/go-runewidth"
+	"golang.org/x/image/font"
 )
 
 var (
@@ -48,6 +51,8 @@ var (
 
 type eventHandler interface {
 	HandleEvent(keys []ebiten.Key) error
+	EvKeyDown(keys []ebiten.Key) action
+	HandleAction(act action) (bool, error)
 	OnRender(screen *ebiten.Image)
 }
 
@@ -56,39 +61,11 @@ type eventHandlerBase struct {
 }
 
 func (e *eventHandlerBase) HandleEvent(keys []ebiten.Key) error {
-	return nil
+	_, err := e.HandleAction(e.EvKeyDown(keys))
+	return err
 }
 
-func (e *eventHandlerBase) OnRender(screen *ebiten.Image) {
-	e.engine.Render(screen)
-}
-
-type mainGameEventHandler struct {
-	eventHandlerBase
-}
-
-func (e *mainGameEventHandler) HandleEvent(keys []ebiten.Key) error {
-	mx, my := ebiten.CursorPosition()
-	if e.engine.GameMap.InBounds(int(mx/10), int(my/10)) {
-		e.engine.MouseLocation = [2]int{int(mx / 10), int(my/10) + 1} // I don't know why +1 is needed, however this worked well
-	}
-	action := e.EvkeyDown(keys)
-	switch act := action.(type) {
-	case noneAction:
-		return nil
-	default:
-		if err := act.Perform(); err != nil {
-			return err
-		}
-		if err := e.engine.HandleEnemyTurns(); err != nil {
-			return err
-		}
-		e.engine.UpdateFov()
-	}
-	return nil
-}
-
-func (e *mainGameEventHandler) EvkeyDown(keys []ebiten.Key) action {
+func (e *eventHandlerBase) EvKeyDown(keys []ebiten.Key) action {
 	player := e.engine.Player
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
@@ -112,6 +89,12 @@ func (e *mainGameEventHandler) EvkeyDown(keys []ebiten.Key) action {
 				return escapeAction{}
 			case ebiten.KeyV:
 				e.engine.EventHandler = newHistoryViewer(e.engine)
+			case ebiten.KeyG:
+				return newPickupAction(e.engine.Player)
+			case ebiten.KeyI:
+				e.engine.EventHandler = newInventoryActivateHandler(e.engine)
+			case ebiten.KeyD:
+				e.engine.EventHandler = newInventoryDropHandler(e.engine)
 			default:
 			}
 		}
@@ -119,25 +102,218 @@ func (e *mainGameEventHandler) EvkeyDown(keys []ebiten.Key) action {
 	return noneAction{}
 }
 
+func (e *eventHandlerBase) HandleAction(act action) (bool, error) {
+	switch act := act.(type) {
+	case noneAction:
+		return false, nil
+	default:
+		if err := act.Perform(); err != nil {
+			switch err.(type) {
+			case impossible:
+				e.engine.MessageLog.AddMessage(err.Error(), ColorImpossible, true)
+				return false, nil
+			default:
+				return false, err
+			}
+		}
+		if err := e.engine.HandleEnemyTurns(); err != nil {
+			return false, err
+		}
+		e.engine.UpdateFov()
+		return true, nil
+	}
+}
+
+func (e *eventHandlerBase) OnRender(screen *ebiten.Image) {
+	e.engine.Render(screen)
+}
+
+type askUserEventHandler struct {
+	eventHandlerBase
+}
+
+func (e *askUserEventHandler) HandleEvent(keys []ebiten.Key) error {
+	_, err := e.HandleAction(e.EvKeyDown(keys))
+	return err
+}
+
+func (e *askUserEventHandler) EvKeyDown(keys []ebiten.Key) action {
+	for _, p := range keys {
+		if !repeatingKeyPressed(p) {
+			continue
+		}
+		switch p {
+		case ebiten.KeyShiftLeft, ebiten.KeyShiftRight, ebiten.KeyControlLeft, ebiten.KeyControlRight, ebiten.KeyAltLeft, ebiten.KeyAltRight:
+			return noneAction{}
+		default:
+			return e.OnExit()
+		}
+	}
+	return noneAction{}
+}
+
+func (e *askUserEventHandler) HandleAction(act action) (bool, error) {
+	ok, err := e.eventHandlerBase.HandleAction(act)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		e.engine.EventHandler = &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
+		return true, nil
+	}
+	return false, nil
+}
+
+func (e *askUserEventHandler) OnExit() action {
+	e.engine.EventHandler = &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
+	return noneAction{}
+}
+
+type inventoryEventHandler struct {
+	askUserEventHandler
+	Title  string
+	Window *ebiten.Image
+}
+
+func (e *inventoryEventHandler) OnRender(screen *ebiten.Image) {
+	e.askUserEventHandler.OnRender(screen)
+
+	numberOfItemsInInventory := len(e.engine.Player.Inventory.Items)
+	height := numberOfItemsInInventory*10 + 20
+
+	width := len(e.Title)*10 + 40
+	if height <= 30 {
+		height = 30
+	}
+	if e.Window == nil {
+		e.Window = ebiten.NewImage(width, height)
+	}
+	fillWindow(e.Window, width, height, e.Title, e.engine.Font, ColorBlack, ColorWhite)
+
+	if numberOfItemsInInventory > 0 {
+		for i, it := range e.engine.Player.Inventory.Items {
+			text.Draw(e.Window, fmt.Sprintf("(%s) %s", string(0x41+i), it.Name), e.engine.Font, 10, 20+i*10, ColorWhite)
+		}
+	} else {
+		text.Draw(e.Window, "(Empty)", e.engine.Font, 10, 20, ColorWhite)
+	}
+	op := &ebiten.DrawImageOptions{}
+	x := 0.0
+	y := 0.0
+	if e.engine.Player.X <= 30 {
+		x = 400
+	}
+	op.GeoM.Translate(x, y)
+	screen.DrawImage(e.Window, op)
+}
+
+type inventoryActivateHandler struct {
+	inventoryEventHandler
+}
+
+func newInventoryActivateHandler(e *engine) *inventoryActivateHandler {
+	return &inventoryActivateHandler{
+		inventoryEventHandler: inventoryEventHandler{
+			askUserEventHandler: askUserEventHandler{
+				eventHandlerBase: eventHandlerBase{
+					engine: e,
+				},
+			},
+			Title: "Select an item to use",
+		},
+	}
+}
+
+func (e *inventoryActivateHandler) HandleEvent(keys []ebiten.Key) error {
+	_, err := e.HandleAction(e.EvKeyDown(keys))
+	return err
+}
+
+func (e *inventoryActivateHandler) EvKeyDown(keys []ebiten.Key) action {
+	player := e.engine.Player
+	for _, p := range keys {
+		if !repeatingKeyPressed(p) {
+			continue
+		}
+		idx := p - ebiten.KeyA
+
+		if 0 <= idx && idx <= 26 {
+			if len(player.Inventory.Items) > int(idx) {
+				return e.OnItemSelected(player.Inventory.Items[idx])
+			} else {
+				e.engine.MessageLog.AddMessage("Invalid entry.", ColorInvalid, true)
+				return noneAction{}
+			}
+		}
+	}
+	return e.askUserEventHandler.EvKeyDown(keys)
+}
+
+func (e inventoryActivateHandler) OnItemSelected(it *item) action {
+	return it.Consumable.GetAction(e.engine.Player)
+}
+
+type inventoryDropHandler struct {
+	inventoryEventHandler
+}
+
+func newInventoryDropHandler(e *engine) *inventoryDropHandler {
+	return &inventoryDropHandler{
+		inventoryEventHandler: inventoryEventHandler{
+			askUserEventHandler: askUserEventHandler{
+				eventHandlerBase: eventHandlerBase{
+					engine: e,
+				},
+			},
+			Title: "Select an item to drop",
+		},
+	}
+}
+
+func (e *inventoryDropHandler) HandleEvent(keys []ebiten.Key) error {
+	_, err := e.HandleAction(e.EvKeyDown(keys))
+	return err
+}
+
+func (e *inventoryDropHandler) EvKeyDown(keys []ebiten.Key) action {
+	player := e.engine.Player
+	for _, p := range keys {
+		if !repeatingKeyPressed(p) {
+			continue
+		}
+		idx := p - ebiten.KeyA
+
+		if 0 <= idx && idx <= 26 {
+			if len(player.Inventory.Items) > int(idx) {
+				return e.OnItemSelected(player.Inventory.Items[idx])
+			} else {
+				e.engine.MessageLog.AddMessage("Invalid entry.", ColorInvalid, true)
+				return noneAction{}
+			}
+		}
+	}
+	return e.askUserEventHandler.EvKeyDown(keys)
+}
+
+func (e inventoryDropHandler) OnItemSelected(it *item) action {
+	return &dropItem{
+		itemAction: *newItemAction(e.engine.Player, it, nil),
+	}
+}
+
+type mainGameEventHandler struct {
+	eventHandlerBase
+}
+
 type gameOverEventHandler struct {
 	eventHandlerBase
 }
 
-func (e gameOverEventHandler) HandleEvent(keys []ebiten.Key) error {
-	action := e.EvkeyDown(keys)
-	switch act := action.(type) {
-	case noneAction:
-		return nil
-	default:
-		if err := act.Perform(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (e *gameOverEventHandler) EvkeyDown(keys []ebiten.Key) action {
+func (e *gameOverEventHandler) EvKeyDown(keys []ebiten.Key) action {
 	for _, p := range keys {
+		if !repeatingKeyPressed(p) {
+			continue
+		}
 		switch p {
 		case ebiten.KeyEscape:
 			return escapeAction{}
@@ -177,11 +353,11 @@ func newHistoryViewer(e *engine) *historyViewer {
 }
 
 func (e *historyViewer) HandleEvent(keys []ebiten.Key) error {
-	_ = e.EvkeyDown(keys)
+	_ = e.EvKeyDown(keys)
 	return nil
 }
 
-func (e *historyViewer) EvkeyDown(keys []ebiten.Key) action {
+func (e *historyViewer) EvKeyDown(keys []ebiten.Key) action {
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
 			continue
@@ -212,50 +388,12 @@ func (e *historyViewer) OnRender(screen *ebiten.Image) {
 	e.eventHandlerBase.OnRender(screen)
 
 	width, height := screen.Size()
-	if e.Window != nil {
-		ww, wh := e.Window.Size()
-		if ww != width-60 || wh != height-60 {
-			e.Window = ebiten.NewImage(width-60, height-60)
-		}
-	} else {
+	if e.Window == nil {
 		e.Window = ebiten.NewImage(width-60, height-60)
 	}
-	e.Window.Fill(ColorBlack)
+	fillWindow(e.Window, width-60, height-60, "Message history", e.engine.Font, ColorWhite, ColorBlack)
 
-	windowTitle := "Message history"
-	windowTitleLen := (len(windowTitle) + 2) * 10
 	ww, wh := e.Window.Size()
-	windowTitleStart := int(math.Floor(float64(ww-windowTitleLen)/20) * 10)
-	for w := 0; w < ww; w += 10 {
-		for h := 0; h < wh; h += 10 {
-			if w == 0 && h == 0 {
-				text.Draw(e.Window, string([]rune{0xda}), e.engine.Font, w, h+10, ColorWhite) // left upper
-			} else if w == ww-10 && h == 0 {
-				text.Draw(e.Window, string([]rune{0xbf}), e.engine.Font, w, h+10, ColorWhite) // right upper
-			} else if w == 0 && h == wh-10 {
-				text.Draw(e.Window, string([]rune{0xc0}), e.engine.Font, w, h+10, ColorWhite) // left lower
-			} else if w == ww-10 && h == wh-10 {
-				text.Draw(e.Window, string([]rune{0xd9}), e.engine.Font, w, h+10, ColorWhite) // right lower
-			} else if w == 0 || w == ww-10 {
-				text.Draw(e.Window, string([]rune{0xb3}), e.engine.Font, w, h+10, ColorWhite) // vertical line
-			} else if h == 0 || h == wh-10 {
-				if h == 0 {
-					if w == windowTitleStart {
-						text.Draw(e.Window, string([]rune{0xb4}), e.engine.Font, w, h+10, ColorWhite) // title left
-					} else if w == windowTitleStart+windowTitleLen-10 {
-						text.Draw(e.Window, string([]rune{0xc3}), e.engine.Font, w, h+10, ColorWhite) // title right
-					} else if w > windowTitleStart && w < windowTitleStart+windowTitleLen-10 {
-						text.Draw(e.Window, string(windowTitle[(w-windowTitleStart-10)/10]), e.engine.Font, w, h+10, ColorWhite)
-					} else {
-						text.Draw(e.Window, string([]rune{0xc4}), e.engine.Font, w, h+10, ColorWhite) // horizontal line
-					}
-				} else {
-					text.Draw(e.Window, string([]rune{0xc4}), e.engine.Font, w, h+10, ColorWhite) // horizontal line
-				}
-			}
-		}
-	}
-
 	yOffset := wh - 10
 	reversedMsg := make([]Message, 0, len(e.engine.MessageLog.Messages[:e.Cursor+1]))
 	for _, msg := range e.engine.MessageLog.Messages[:e.Cursor+1] {
@@ -304,4 +442,44 @@ func repeatingKeyPressed(key ebiten.Key) bool {
 		return true
 	}
 	return false
+}
+
+func fillWindow(window *ebiten.Image, width, height int, title string, f font.Face, fg, bg color.RGBA) {
+	window.Fill(ColorBlack)
+
+	windowTitleLen := (len(title) + 2) * 10
+	ww, wh := window.Size()
+	windowTitleStart := int(math.Floor(float64(ww-windowTitleLen)/20) * 10)
+	for w := 0; w < ww; w += 10 {
+		for h := 0; h < wh; h += 10 {
+			if w == 0 && h == 0 {
+				text.Draw(window, string([]rune{0xda}), f, w, h+10, ColorWhite) // left upper
+			} else if w == ww-10 && h == 0 {
+				text.Draw(window, string([]rune{0xbf}), f, w, h+10, ColorWhite) // right upper
+			} else if w == 0 && h == wh-10 {
+				text.Draw(window, string([]rune{0xc0}), f, w, h+10, ColorWhite) // left lower
+			} else if w == ww-10 && h == wh-10 {
+				text.Draw(window, string([]rune{0xd9}), f, w, h+10, ColorWhite) // right lower
+			} else if w == 0 || w == ww-10 {
+				text.Draw(window, string([]rune{0xb3}), f, w, h+10, ColorWhite) // vertical line
+			} else if h == 0 || h == wh-10 {
+				if h == 0 {
+					if w == windowTitleStart {
+						text.Draw(window, string([]rune{0xdb}), f, w, h+10, bg)
+						text.Draw(window, string([]rune{0xb4}), f, w, h+10, ColorWhite) // title left
+					} else if w == windowTitleStart+windowTitleLen-10 {
+						text.Draw(window, string([]rune{0xdb}), f, w, h+10, bg)
+						text.Draw(window, string([]rune{0xc3}), f, w, h+10, ColorWhite) // title right
+					} else if w > windowTitleStart && w < windowTitleStart+windowTitleLen-10 {
+						text.Draw(window, string([]rune{0xdb}), f, w, h+10, bg)
+						text.Draw(window, string(title[(w-windowTitleStart-10)/10]), f, w, h+10, fg)
+					} else {
+						text.Draw(window, string([]rune{0xc4}), f, w, h+10, ColorWhite) // horizontal line
+					}
+				} else {
+					text.Draw(window, string([]rune{0xc4}), f, w, h+10, ColorWhite) // horizontal line
+				}
+			}
+		}
+	}
 }

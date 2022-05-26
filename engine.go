@@ -32,9 +32,16 @@ func (e *engine) HandleEnemyTurns() error {
 		if entity == e.Player {
 			continue
 		}
-		if entity.IsAlive() {
-			if err := entity.AI.Perform(); err != nil {
-				return err
+		if a, ok := entity.(*actor); ok {
+			if a.IsAlive() {
+				if err := a.AI.Perform(); err != nil {
+					switch err.(type) {
+					case impossible:
+						// pass
+					default:
+						return err
+					}
+				}
 			}
 		}
 	}

@@ -14,28 +14,56 @@ type fighter struct {
 	Power   int
 }
 
-func (c *fighter) SetHP(val int) {
+func (c *fighter) setHP(val int) {
 	c.HP = int(math.Max(0, math.Min(float64(val), float64(c.MaxHP))))
-	if c.HP == 0 && c.Entity.AI != nil {
-		c.Die()
+	if p, ok := c.Parent.(*actor); ok {
+		if c.HP == 0 && p.AI != nil {
+			c.Die()
+		}
 	}
 }
 
 func (c *fighter) Die() {
-	deathMessage := fmt.Sprintf("%s is dead!", c.Entity.Name)
+	p, ok := c.Parent.(*actor)
+	if !ok {
+		return
+	}
+	deathMessage := fmt.Sprintf("%s is dead!", p.Name)
 	deathMessageColor := ColorEnemyDie
-	if c.Entity == c.Engine().Player {
+	if c.Parent == c.Engine().Player {
 		deathMessage = "You died!"
 		deathMessageColor = ColorPlayerDie
 		c.Engine().EventHandler = &gameOverEventHandler{eventHandlerBase{engine: c.Engine()}}
 	}
 
-	c.Entity.Char = "%"
-	c.Entity.Color = color.RGBA{R: 191, G: 0, B: 0, A: 255}
-	c.Entity.BlocksMovement = false
-	c.Entity.AI = nil
-	c.Entity.Name = fmt.Sprintf("remains of %s", c.Entity.Name)
-	c.Entity.RenderOrder = RenderOrder_Corpse
+	p.Char = "%"
+	p.Color = color.RGBA{R: 191, G: 0, B: 0, A: 255}
+	p.BlocksMovement = false
+	p.AI = nil
+	p.Name = fmt.Sprintf("remains of %s", p.Name)
+	p.RO = RenderOrder_Corpse
 
 	c.Engine().MessageLog.AddMessage(deathMessage, deathMessageColor, true)
+}
+
+func (c *fighter) Heal(amount int) int {
+	if c.HP == c.MaxHP {
+		return 0
+	}
+
+	newHpValue := c.HP + amount
+	if newHpValue > c.MaxHP {
+		newHpValue = c.MaxHP
+	}
+
+	amountRecoverd := newHpValue - c.HP
+
+	c.HP = newHpValue
+
+	return amountRecoverd
+}
+
+func (c *fighter) TakeDamage(amount int) {
+	c.HP -= amount
+	c.setHP(c.HP)
 }

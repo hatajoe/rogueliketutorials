@@ -3,7 +3,7 @@ package main
 import "image/color"
 
 func newPlayer() *actor {
-	e := newActor(
+	return newActor(
 		0,
 		0,
 		"@",
@@ -14,24 +14,21 @@ func newPlayer() *actor {
 			A: 255,
 		},
 		"Player",
-		nil,
-		nil,
-	)
-	e.AI = NewHostileEnemy(e)
-	e.Fighter = &fighter{
-		baseComponent: &baseComponent{
-			Entity: e,
+		&fighter{
+			baseComponent: &baseComponent{
+				Parent: nil,
+			},
+			MaxHP:   30,
+			HP:      30,
+			Defense: 2,
+			Power:   5,
 		},
-		MaxHP:   30,
-		HP:      30,
-		Defense: 2,
-		Power:   5,
-	}
-	return e
+		newInventory(26),
+	)
 }
 
 func newOrc() *actor {
-	e := newActor(
+	return newActor(
 		0,
 		0,
 		"o",
@@ -42,24 +39,21 @@ func newOrc() *actor {
 			A: 255,
 		},
 		"Orc",
-		nil,
-		nil,
-	)
-	e.AI = NewHostileEnemy(e)
-	e.Fighter = &fighter{
-		baseComponent: &baseComponent{
-			Entity: e,
+		&fighter{
+			baseComponent: &baseComponent{
+				Parent: nil,
+			},
+			MaxHP:   10,
+			HP:      10,
+			Defense: 0,
+			Power:   3,
 		},
-		MaxHP:   10,
-		HP:      10,
-		Defense: 0,
-		Power:   3,
-	}
-	return e
+		newInventory(0),
+	)
 }
 
 func newTroll() *actor {
-	e := newActor(
+	return newActor(
 		0,
 		0,
 		"T",
@@ -70,18 +64,31 @@ func newTroll() *actor {
 			A: 255,
 		},
 		"Troll",
-		nil,
-		nil,
-	)
-	e.AI = NewHostileEnemy(e)
-	e.Fighter = &fighter{
-		baseComponent: &baseComponent{
-			Entity: e,
+		&fighter{
+			baseComponent: &baseComponent{
+				Parent: nil,
+			},
+			MaxHP:   16,
+			HP:      16,
+			Defense: 1,
+			Power:   4,
 		},
-		MaxHP:   16,
-		HP:      16,
-		Defense: 1,
-		Power:   4,
-	}
-	return e
+		newInventory(0),
+	)
+}
+
+func newHealthPortion() *item {
+	return newItem(
+		0,
+		0,
+		"!",
+		color.RGBA{
+			R: 127,
+			G: 0,
+			B: 255,
+			A: 255,
+		},
+		"Health Portion",
+		newHealingConsumable(4),
+	)
 }

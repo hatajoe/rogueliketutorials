@@ -155,7 +155,7 @@ func NewHostileEnemy(entity *actor) *hostileEnemy {
 		baseAI: baseAI{
 			Entity: entity,
 			baseComponent: baseComponent{
-				Entity: entity,
+				Parent: entity,
 			},
 		},
 		Path: [][2]int{},
@@ -163,7 +163,7 @@ func NewHostileEnemy(entity *actor) *hostileEnemy {
 }
 
 func (ai hostileEnemy) GetPathTo(destX, destY int) [][2]int {
-	return aster(ai.Entity.GameMap.Tiles, [2]int{ai.Entity.X, ai.Entity.Y}, [2]int{destX, destY})
+	return aster(ai.Entity.Parent.(*gameMap).Tiles, [2]int{ai.Entity.X, ai.Entity.Y}, [2]int{destX, destY})
 }
 
 func (ai hostileEnemy) Perform() error {

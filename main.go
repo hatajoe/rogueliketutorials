@@ -23,6 +23,7 @@ const (
 	roomMinSize        int = 6
 	maxRooms           int = 30
 	maxMonstersPerRoom int = 2
+	maxItemsPerRoom    int = 2
 )
 
 type Game struct {
@@ -31,7 +32,21 @@ type Game struct {
 
 func (g *Game) Update() error {
 	g.keys = inpututil.AppendPressedKeys(g.keys[:0])
-	return gameEngine.EventHandler.HandleEvent(g.keys)
+
+	mx, my := ebiten.CursorPosition()
+	if gameEngine.GameMap.InBounds(int(mx/10), int(my/10)) {
+		gameEngine.MouseLocation = [2]int{int(mx / 10), int(my/10) + 1} // I don't know why +1 is needed, however this worked well
+	}
+	if err := gameEngine.EventHandler.HandleEvent(g.keys); err != nil {
+		switch err.(type) {
+		case impossible:
+			gameEngine.MessageLog.AddMessage(err.Error(), ColorError, false)
+			return nil
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -72,6 +87,7 @@ func init() {
 		screenWidth/10,
 		(screenHeight-50)/10,
 		maxMonstersPerRoom,
+		maxItemsPerRoom,
 		gameEngine,
 	)
 	gameEngine.UpdateFov()

@@ -39,11 +39,11 @@ func (r rectangularRoom) Intersects(other rectangularRoom) bool {
 		r.Y2 >= other.Y1
 }
 
-func generateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight, maxMonsterPerRoom int, en *engine) *gameMap {
+func generateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight, maxMonsterPerRoom, maxItemsPerRoom int, en *engine) *gameMap {
 	rand.Seed(time.Now().UnixNano())
 
 	player := en.Player
-	dungeon := newGameMap(en, mapWidth, mapHeight, []*actor{player})
+	dungeon := newGameMap(en, mapWidth, mapHeight, []entity{player})
 
 	rooms := []rectangularRoom{}
 	for i := 0; i < maxRooms; i++ {
@@ -85,7 +85,7 @@ func generateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight, ma
 			}
 		}
 
-		placeEntities(newRoom, dungeon, maxMonsterPerRoom)
+		placeEntities(newRoom, dungeon, maxMonsterPerRoom, maxItemsPerRoom)
 
 		rooms = append(rooms, newRoom)
 	}
@@ -152,19 +152,35 @@ func bresenham(x1, y1, x2, y2 int) chan [2]int {
 	return ch
 }
 
-func placeEntities(room rectangularRoom, dungeon *gameMap, maximumMonsters int) {
+func placeEntities(room rectangularRoom, dungeon *gameMap, maximumMonsters, maximumItems int) {
 	numberOfMonsters := rand.Intn(maximumMonsters + 1)
+	numberOfItems := rand.Intn(maximumItems)
+
 	for i := 0; i < numberOfMonsters; i++ {
 		x := rand.Intn((room.X2-1)-(room.X1+1)) + room.X1 + 1
 		y := rand.Intn((room.Y2-1)-(room.Y1+1)) + room.Y1 + 1
 
-		for _, e := range dungeon.Entities {
+		for _, entity := range dungeon.Entities {
+			e := entity.Entity()
 			if !(e.X == x && e.Y == y) {
 				if rand.Float32() < 0.8 {
 					newOrc().Spawn(dungeon, x, y)
 				} else {
 					newTroll().Spawn(dungeon, x, y)
 				}
+				break
+			}
+		}
+	}
+
+	for i := 0; i < numberOfItems; i++ {
+		x := rand.Intn((room.X2-1)-(room.X1+1)) + room.X1 + 1
+		y := rand.Intn((room.Y2-1)-(room.Y1+1)) + room.Y1 + 1
+
+		for _, entity := range dungeon.Entities {
+			e := entity.Entity()
+			if !(e.X == x && e.Y == y) {
+				newHealthPortion().Spawn(dungeon, x, y)
 				break
 			}
 		}

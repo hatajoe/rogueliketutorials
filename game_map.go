@@ -15,10 +15,10 @@ type gameMap struct {
 	Tiles    [][]*tile
 	Visible  [][]bool
 	Explored [][]bool
-	Entities []*actor
+	Entities []entity
 }
 
-func newGameMap(en *engine, width, height int, entities []*actor) *gameMap {
+func newGameMap(en *engine, width, height int, entities []entity) *gameMap {
 	tiles := make([][]*tile, width)
 	visible := make([][]bool, width)
 	explored := make([][]bool, width)
@@ -46,10 +46,34 @@ func newGameMap(en *engine, width, height int, entities []*actor) *gameMap {
 	}
 }
 
+func (g *gameMap) GameMap() *gameMap {
+	return g
+}
+
+func (g *gameMap) GetEntities() []entity {
+	return g.Entities
+}
+
+func (g *gameMap) SetEntities(entities []entity) {
+	g.Entities = entities
+}
+
 func (g gameMap) Actors() []*actor {
 	es := []*actor{}
-	for _, a := range g.Entities {
-		if a.IsAlive() {
+	for _, e := range g.Entities {
+		if a, ok := e.(*actor); ok {
+			if a.IsAlive() {
+				es = append(es, a)
+			}
+		}
+	}
+	return es
+}
+
+func (g gameMap) Items() []*item {
+	es := []*item{}
+	for _, e := range g.Entities {
+		if a, ok := e.(*item); ok {
 			es = append(es, a)
 		}
 	}
@@ -67,8 +91,10 @@ func (g gameMap) GetAcotrAtLocation(x, y int) *actor {
 
 func (g gameMap) GetBlockingEntityAtLocation(x, y int) *actor {
 	for _, e := range g.Entities {
-		if e.BlocksMovement && e.X == x && e.Y == y {
-			return e
+		if a, ok := e.(*actor); ok {
+			if a.BlocksMovement && a.X == x && a.Y == y {
+				return a
+			}
 		}
 	}
 	return nil
@@ -87,10 +113,11 @@ func (g gameMap) Render(screen *ebiten.Image, font font.Face) {
 		}
 	}
 	entities := g.Entities
-	sort.Slice(entities, func(i, j int) bool { return entities[i].RenderOrder < entities[i].RenderOrder })
+	sort.Slice(entities, func(i, j int) bool { return entities[i].RenderOrder() < entities[i].RenderOrder() })
 	for _, entity := range entities {
-		if g.IsVisible(entity.X, entity.Y) {
-			text.Draw(screen, entity.Char, font, entity.X*10, entity.Y*10, entity.Color)
+		e := entity.Entity()
+		if g.IsVisible(e.X, e.Y) {
+			text.Draw(screen, e.Char, font, e.X*10, e.Y*10, e.Color)
 		}
 	}
 }
