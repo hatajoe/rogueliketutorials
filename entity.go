@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"math"
 )
 
 type entityHolder interface {
@@ -48,9 +49,13 @@ func (e *baseEntity) RenderOrder() RenderOrder {
 	return e.RO
 }
 
+func (e *baseEntity) Distance(x, y int) float64 {
+	return math.Sqrt(math.Pow(float64(x-e.X), 2) + math.Pow(float64(y-e.Y), 2))
+}
+
 type actor struct {
 	*baseEntity
-	AI        *hostileEnemy
+	AI        AI
 	Fighter   *fighter
 	Inventory *inventory
 }

@@ -92,3 +92,51 @@ func newHealthPortion() *item {
 		newHealingConsumable(4),
 	)
 }
+
+func newLightningScroll() *item {
+	return newItem(
+		0,
+		0,
+		"~",
+		color.RGBA{
+			R: 255,
+			G: 255,
+			B: 0,
+			A: 255,
+		},
+		"Lightning Scroll",
+		newLightningDamageConsumable(20, 5),
+	)
+}
+
+func newConfusionScroll() *item {
+	return newItem(
+		0,
+		0,
+		"~",
+		color.RGBA{
+			R: 207,
+			G: 63,
+			B: 255,
+			A: 255,
+		},
+		"Confusion Scroll",
+		newConfusionConsumable(10),
+	)
+}
+
+func newFireballScroll() *item {
+	return newItem(
+		0,
+		0,
+		"~",
+		color.RGBA{
+			R: 255,
+			G: 0,
+			B: 0,
+			A: 255,
+		},
+		"Fireball Scroll",
+		newFireballDamageConsumable(12, 3),
+	)
+}

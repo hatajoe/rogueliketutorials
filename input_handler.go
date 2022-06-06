@@ -47,6 +47,9 @@ var (
 		ebiten.KeyPeriod:  {},
 		ebiten.KeyNumpad5: {},
 	}
+	confirmKeys = map[ebiten.Key]struct{}{
+		ebiten.KeyEnter: {},
+	}
 )
 
 type eventHandler interface {
@@ -95,6 +98,8 @@ func (e *eventHandlerBase) EvKeyDown(keys []ebiten.Key) action {
 				e.engine.EventHandler = newInventoryActivateHandler(e.engine)
 			case ebiten.KeyD:
 				e.engine.EventHandler = newInventoryDropHandler(e.engine)
+			case ebiten.KeySlash:
+				e.engine.EventHandler = &lookHandler{selectIndexHandler: newSelectIndexHandler(e.engine)}
 			default:
 			}
 		}
@@ -301,12 +306,212 @@ func (e inventoryDropHandler) OnItemSelected(it *item) action {
 	}
 }
 
+type selectIndexHandler struct {
+	askUserEventHandler
+	Player *actor
+}
+
+func newSelectIndexHandler(e *engine) selectIndexHandler {
+	e.MouseLocation = [2]int{e.Player.X, e.Player.Y}
+	return selectIndexHandler{
+		askUserEventHandler: askUserEventHandler{
+			eventHandlerBase: eventHandlerBase{
+				engine: e,
+			},
+		},
+		Player: e.Player,
+	}
+}
+
+func (e *selectIndexHandler) OnRender(screen *ebiten.Image) {
+	e.askUserEventHandler.OnRender(screen)
+
+	x, y := e.engine.MouseLocation[0], e.engine.MouseLocation[1]
+
+	text.Draw(screen, string([]rune{0xdb}), e.engine.Font, x*10, y*10, ColorSelect)
+}
+
+func (e *selectIndexHandler) HandleEvent(keys []ebiten.Key) error {
+	_, err := e.HandleAction(e.EvKeyDown(keys))
+	return err
+}
+
+func (e *selectIndexHandler) EvKeyDown(keys []ebiten.Key) action {
+	for _, p := range keys {
+		if !repeatingKeyPressed(p) {
+			continue
+		}
+		if _, ok := moveKeys[p]; ok {
+			modifier := 1 // Holding modifier keys will speed up key movement
+			for _, m := range keys {
+				if m == ebiten.KeyShiftLeft || m == ebiten.KeyShiftRight {
+					modifier *= 5
+					break
+				} else if m == ebiten.KeyControlLeft || m == ebiten.KeyControlRight {
+					modifier *= 10
+					break
+				} else if m == ebiten.KeyAltLeft || m == ebiten.KeyAltRight {
+					modifier *= 20
+					break
+				}
+			}
+			x, y := e.engine.MouseLocation[0], e.engine.MouseLocation[1]
+			dx, dy := moveKeys[p][0], moveKeys[p][1]
+			x += dx * modifier
+			y += dy * modifier
+			// Clamp the cursor index to the map size
+			x = int(math.Max(0, math.Min(float64(x), float64(e.engine.GameMap.Width-1))))
+			y = int(math.Max(0, math.Min(float64(y), float64(e.engine.GameMap.Height-1))))
+			e.engine.MouseLocation = [2]int{x, y}
+			return noneAction{}
+		}
+		e.askUserEventHandler.EvKeyDown(keys)
+	}
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		return e.OnMouseButtonDown()
+	}
+	return noneAction{}
+}
+
+func (e *selectIndexHandler) OnMouseButtonDown() action {
+	return e.OnIndexSelected(e.engine.MouseLocation[0], e.engine.MouseLocation[1])
+}
+
+func (e *selectIndexHandler) OnIndexSelected(x, y int) action {
+	return noneAction{}
+}
+
+type lookHandler struct {
+	selectIndexHandler
+}
+
+func (e *lookHandler) HandleEvent(keys []ebiten.Key) error {
+	_, err := e.HandleAction(e.EvKeyDown(keys))
+	return err
+}
+
+func (e *lookHandler) EvKeyDown(keys []ebiten.Key) action {
+	for _, p := range keys {
+		if !repeatingKeyPressed(p) {
+			continue
+		}
+		if _, ok := confirmKeys[p]; ok {
+			return e.OnIndexSelected(e.engine.MouseLocation[0], e.engine.MouseLocation[1])
+		}
+	}
+	act := e.selectIndexHandler.EvKeyDown(keys)
+	if _, ok := act.(noneAction); !ok {
+		return act
+	}
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		return e.OnMouseButtonDown()
+	}
+	return noneAction{}
+}
+
+func (e *lookHandler) OnMouseButtonDown() action {
+	return e.OnIndexSelected(e.engine.MouseLocation[0], e.engine.MouseLocation[1])
+}
+
+func (e *lookHandler) OnIndexSelected(x, y int) action {
+	e.engine.EventHandler = &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
+	return noneAction{}
+}
+
+type singleRangedAttackHandler struct {
+	selectIndexHandler
+	Callback func(x, y int) action
+}
+
+func (e *singleRangedAttackHandler) HandleEvent(keys []ebiten.Key) error {
+	_, err := e.HandleAction(e.EvKeyDown(keys))
+	return err
+}
+
+func (e *singleRangedAttackHandler) EvKeyDown(keys []ebiten.Key) action {
+	for _, p := range keys {
+		if !repeatingKeyPressed(p) {
+			continue
+		}
+		if _, ok := confirmKeys[p]; ok {
+			return e.OnIndexSelected(e.engine.MouseLocation[0], e.engine.MouseLocation[1])
+		}
+	}
+	act := e.selectIndexHandler.EvKeyDown(keys)
+	if _, ok := act.(noneAction); !ok {
+		return act
+	}
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		return e.OnMouseButtonDown()
+	}
+	return noneAction{}
+}
+
+func (e *singleRangedAttackHandler) OnMouseButtonDown() action {
+	return e.OnIndexSelected(e.engine.MouseLocation[0], e.engine.MouseLocation[1])
+}
+
+func (e *singleRangedAttackHandler) OnIndexSelected(x, y int) action {
+	return e.Callback(x, y)
+}
+
+type areaRangedAttackHandler struct {
+	selectIndexHandler
+	Radius   int
+	Callback func(x, y int) action
+}
+
+func (e *areaRangedAttackHandler) HandleEvent(keys []ebiten.Key) error {
+	_, err := e.HandleAction(e.EvKeyDown(keys))
+	return err
+}
+
+func (e *areaRangedAttackHandler) OnRender(screen *ebiten.Image) {
+	e.selectIndexHandler.OnRender(screen)
+
+	x, y := e.engine.MouseLocation[0], e.engine.MouseLocation[1]
+
+	drawRange(screen, x*10-e.Radius*10-10, y*10-e.Radius*10-20, int(math.Pow(float64(e.Radius), 2))*10, int(math.Pow(float64(e.Radius), 2))*10, e.engine.Font, ColorRed)
+}
+
+func (e *areaRangedAttackHandler) EvKeyDown(keys []ebiten.Key) action {
+	for _, p := range keys {
+		if !repeatingKeyPressed(p) {
+			continue
+		}
+		if _, ok := confirmKeys[p]; ok {
+			return e.OnIndexSelected(e.engine.MouseLocation[0], e.engine.MouseLocation[1])
+		}
+	}
+	act := e.selectIndexHandler.EvKeyDown(keys)
+	if _, ok := act.(noneAction); !ok {
+		return act
+	}
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		return e.OnMouseButtonDown()
+	}
+	return noneAction{}
+}
+
+func (e *areaRangedAttackHandler) OnMouseButtonDown() action {
+	return e.OnIndexSelected(e.engine.MouseLocation[0], e.engine.MouseLocation[1])
+}
+
+func (e *areaRangedAttackHandler) OnIndexSelected(x, y int) action {
+	return e.Callback(x, y)
+}
+
 type mainGameEventHandler struct {
 	eventHandlerBase
 }
 
 type gameOverEventHandler struct {
 	eventHandlerBase
+}
+
+func (e *gameOverEventHandler) HandleEvent(keys []ebiten.Key) error {
+	_, err := e.HandleAction(e.EvKeyDown(keys))
+	return err
 }
 
 func (e *gameOverEventHandler) EvKeyDown(keys []ebiten.Key) action {
@@ -479,6 +684,26 @@ func fillWindow(window *ebiten.Image, width, height int, title string, f font.Fa
 				} else {
 					text.Draw(window, string([]rune{0xc4}), f, w, h+10, ColorWhite) // horizontal line
 				}
+			}
+		}
+	}
+}
+
+func drawRange(screen *ebiten.Image, x, y, width, height int, f font.Face, c color.RGBA) {
+	for w := x; w < x+width; w += 10 {
+		for h := y; h < y+height; h += 10 {
+			if w == x && h == y {
+				text.Draw(screen, string([]rune{0xda}), f, w, h+10, c) // left upper
+			} else if w == x+width-10 && h == y {
+				text.Draw(screen, string([]rune{0xbf}), f, w, h+10, c) // right upper
+			} else if w == x && h == y+height-10 {
+				text.Draw(screen, string([]rune{0xc0}), f, w, h+10, c) // left lower
+			} else if w == x+width-10 && h == y+height-10 {
+				text.Draw(screen, string([]rune{0xd9}), f, w, h+10, c) // right lower
+			} else if w == x || w == x+width-10 {
+				text.Draw(screen, string([]rune{0xb3}), f, w, h+10, c) // vertical line
+			} else if h == y || h == y+height-10 {
+				text.Draw(screen, string([]rune{0xc4}), f, w, h+10, c) // horizontal line
 			}
 		}
 	}

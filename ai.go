@@ -1,13 +1,129 @@
 package main
 
 import (
+	"fmt"
 	"math"
+	"math/rand"
 )
+
+type AI interface {
+	Perform() error
+}
 
 type baseAI struct {
 	action
 	baseComponent
 	Entity *actor
+}
+
+type confusedEnemy struct {
+	baseAI
+	PreviousAI     AI
+	TurnsRemaining int
+}
+
+func newConfusedEnemy(entity *actor, previousAI AI, turnsRemaining int) *confusedEnemy {
+	return &confusedEnemy{
+		baseAI: baseAI{
+			Entity: entity,
+			baseComponent: baseComponent{
+				Parent: entity,
+			},
+		},
+		PreviousAI:     previousAI,
+		TurnsRemaining: turnsRemaining,
+	}
+}
+
+func (ai *confusedEnemy) Perform() error {
+	if ai.TurnsRemaining <= 0 {
+		ai.Engine().MessageLog.AddMessage(fmt.Sprintf("The %s is no logner confused.", ai.Entity.Name), ColorWhite, true)
+		ai.Entity.AI = ai.PreviousAI
+	} else {
+		direction := [][2]int{
+			{-1, -1}, // Northwest
+			{0, -1},  // North
+			{1, -1},  // Northeast
+			{-1, 0},  // West
+			{1, 0},   // East
+			{-1, 1},  // Southwest
+			{0, 1},   // South
+			{1, 1},   // Southwest
+		}
+		d := direction[rand.Intn(len(direction)-1)]
+
+		ai.TurnsRemaining -= 1
+
+		return bumpAction{
+			actionWithDirection{
+				baseAction: baseAction{
+					Entity: ai.Entity,
+				},
+				Dx: d[0],
+				Dy: d[1],
+			},
+		}.Perform()
+	}
+	return nil
+}
+
+type hostileEnemy struct {
+	baseAI
+	Path [][2]int
+}
+
+func NewHostileEnemy(entity *actor) *hostileEnemy {
+	return &hostileEnemy{
+		baseAI: baseAI{
+			Entity: entity,
+			baseComponent: baseComponent{
+				Parent: entity,
+			},
+		},
+		Path: [][2]int{},
+	}
+}
+
+func (ai hostileEnemy) getPathTo(destX, destY int) [][2]int {
+	return aster(ai.Entity.Parent.(*gameMap).Tiles, [2]int{ai.Entity.X, ai.Entity.Y}, [2]int{destX, destY})
+}
+
+func (ai hostileEnemy) Perform() error {
+	target := ai.Engine().Player
+	dx := target.X - ai.Entity.X
+	dy := target.Y - ai.Entity.Y
+	distance := int(math.Max(math.Abs(float64(dx)), math.Abs(float64(dy))))
+
+	if ai.Engine().GameMap.Visible[ai.Entity.X][ai.Entity.Y] {
+		if distance <= 1 {
+			return meleeAction{
+				actionWithDirection{
+					baseAction: baseAction{
+						Entity: ai.Entity,
+					},
+					Dx: dx,
+					Dy: dy,
+				},
+			}.Perform()
+		}
+
+		ai.Path = ai.getPathTo(target.X, target.Y)
+	}
+
+	if len(ai.Path) > 0 {
+		destX, destY := ai.Path[0][0], ai.Path[0][1]
+		return movementAction{
+			actionWithDirection{
+				baseAction: baseAction{
+					Entity: ai.Entity,
+				},
+				Dx: destX - ai.Entity.X,
+				Dy: destY - ai.Entity.Y,
+			},
+		}.Perform()
+	}
+
+	return waitAction{}.Perform()
 }
 
 type node struct {
@@ -143,63 +259,4 @@ func aster(tiles [][]*tile, start, end [2]int) [][2]int {
 		path[i], path[len(path)-i-1] = path[len(path)-i-1], path[i]
 	}
 	return path[1:]
-}
-
-type hostileEnemy struct {
-	baseAI
-	Path [][2]int
-}
-
-func NewHostileEnemy(entity *actor) *hostileEnemy {
-	return &hostileEnemy{
-		baseAI: baseAI{
-			Entity: entity,
-			baseComponent: baseComponent{
-				Parent: entity,
-			},
-		},
-		Path: [][2]int{},
-	}
-}
-
-func (ai hostileEnemy) GetPathTo(destX, destY int) [][2]int {
-	return aster(ai.Entity.Parent.(*gameMap).Tiles, [2]int{ai.Entity.X, ai.Entity.Y}, [2]int{destX, destY})
-}
-
-func (ai hostileEnemy) Perform() error {
-	target := ai.Engine().Player
-	dx := target.X - ai.Entity.X
-	dy := target.Y - ai.Entity.Y
-	distance := int(math.Max(math.Abs(float64(dx)), math.Abs(float64(dy))))
-
-	if ai.Engine().GameMap.Visible[ai.Entity.X][ai.Entity.Y] {
-		if distance <= 1 {
-			return meleeAction{
-				actionWithDirection{
-					baseAction: baseAction{
-						Entity: ai.Entity,
-					},
-					Dx: dx,
-					Dy: dy,
-				},
-			}.Perform()
-		}
-
-		ai.Path = ai.GetPathTo(target.X, target.Y)
-	}
-
-	if len(ai.Path) > 0 {
-		destX, destY := ai.Path[0][0], ai.Path[0][1]
-		return movementAction{
-			actionWithDirection{
-				baseAction: baseAction{
-					Entity: ai.Entity,
-				},
-				Dx: destX - ai.Entity.X,
-				Dy: destY - ai.Entity.Y,
-			},
-		}.Perform()
-	}
-
-	return waitAction{}.Perform()
 }

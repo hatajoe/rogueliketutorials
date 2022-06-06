@@ -43,7 +43,7 @@ func generateDungeon(maxRooms, roomMinSize, roomMaxSize, mapWidth, mapHeight, ma
 	rand.Seed(time.Now().UnixNano())
 
 	player := en.Player
-	dungeon := newGameMap(en, mapWidth, mapHeight, []entity{player})
+	dungeon := newGameMap(en, mapWidth, mapHeight, []entity{})
 
 	rooms := []rectangularRoom{}
 	for i := 0; i < maxRooms; i++ {
@@ -180,7 +180,16 @@ func placeEntities(room rectangularRoom, dungeon *gameMap, maximumMonsters, maxi
 		for _, entity := range dungeon.Entities {
 			e := entity.Entity()
 			if !(e.X == x && e.Y == y) {
-				newHealthPortion().Spawn(dungeon, x, y)
+				itemChance := rand.Float32()
+				if itemChance < 0.7 {
+					newHealthPortion().Spawn(dungeon, x, y)
+				} else if itemChance < 0.8 {
+					newFireballScroll().Spawn(dungeon, x, y)
+				} else if itemChance < 0.9 {
+					newConfusionScroll().Spawn(dungeon, x, y)
+				} else {
+					newLightningScroll().Spawn(dungeon, x, y)
+				}
 				break
 			}
 		}
