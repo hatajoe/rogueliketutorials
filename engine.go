@@ -9,7 +9,6 @@ import (
 
 type engine struct {
 	GameMap       *gameMap
-	EventHandler  eventHandler
 	MessageLog    *MessageLog
 	MouseLocation [2]int
 	Player        *actor
@@ -21,7 +20,6 @@ func NewEngine(pl *actor, font font.Face) *engine {
 		Player: pl,
 		Font:   font,
 	}
-	e.EventHandler = &mainGameEventHandler{eventHandlerBase{engine: e}}
 	e.MessageLog = NewMessageLog()
 	e.MouseLocation = [2]int{0, 0}
 	return e

@@ -26,5 +26,8 @@ var (
 	ColorBarFilled = color.RGBA{R: 0x00, G: 0x60, B: 0x00, A: 0xFF}
 	ColorBarEmpty  = color.RGBA{R: 0x40, G: 0x10, B: 0x10, A: 0xFF}
 
+	ColorMenuTitle = color.RGBA{R: 0xFF, G: 0xFF, B: 0x3F}
+	ColorMenuText  = ColorWhite
+
 	ColorSelect = color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x88}
 )

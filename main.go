@@ -37,12 +37,17 @@ func (g *Game) Update() error {
 	if gameEngine.GameMap.InBounds(int(mx/10), int(my/10)) {
 		gameEngine.MouseLocation = [2]int{int(mx / 10), int(my/10) + 1} // I don't know why +1 is needed, however this worked well
 	}
-	if err := gameEngine.EventHandler.HandleEvent(g.keys); err != nil {
+	var err error
+	if handler, err = handler.HandleEvent(g.keys); err != nil {
 		switch err.(type) {
 		case impossible:
 			gameEngine.MessageLog.AddMessage(err.Error(), ColorError, false)
 			return nil
+		case QuitWithoutSaving:
+			// TODO: save
+			return err
 		default:
+			// TODO: save
 			return err
 		}
 	}
@@ -50,7 +55,7 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	gameEngine.EventHandler.OnRender(screen)
+	handler.OnRender(screen)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -60,6 +65,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 var (
 	qbicfeetFont font.Face
 	gameEngine   *engine
+	handler      eventHandler
 )
 
 func init() {
@@ -96,6 +102,12 @@ func init() {
 		ColorWelcomText,
 		true,
 	)
+
+	handler = &mainGameEventHandler{
+		eventHandlerBase: eventHandlerBase{
+			engine: gameEngine,
+		},
+	}
 }
 
 func main() {

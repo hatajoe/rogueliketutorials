@@ -33,7 +33,6 @@ func (c *fighter) Die() {
 	if c.Parent == c.Engine().Player {
 		deathMessage = "You died!"
 		deathMessageColor = ColorPlayerDie
-		c.Engine().EventHandler = &gameOverEventHandler{eventHandlerBase{engine: c.Engine()}}
 	}
 
 	p.Char = "%"

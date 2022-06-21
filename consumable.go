@@ -131,13 +131,12 @@ func newConfusionConsumable(numberOfTurns int) *confusionConsumable {
 
 func (c *confusionConsumable) GetAction(consumer *actor) action {
 	c.Engine().MessageLog.AddMessage("Select a target location.", ColorNeedsTarget, true)
-	c.Engine().EventHandler = &singleRangedAttackHandler{
+	return &singleRangedAttackHandler{
 		selectIndexHandler: newSelectIndexHandler(c.Engine()),
 		Callback: func(x, y int) action {
 			return newItemAction(consumer, c.Parent.(*item), &[2]int{x, y})
 		},
 	}
-	return noneAction{}
 }
 
 func (c *confusionConsumable) Activate(action *itemAction) error {
@@ -179,14 +178,13 @@ func newFireballDamageConsumable(damage, radius int) *fireballDamageConsumable {
 
 func (c *fireballDamageConsumable) GetAction(consumer *actor) action {
 	c.Engine().MessageLog.AddMessage("Select a target location.", ColorNeedsTarget, true)
-	c.Engine().EventHandler = &areaRangedAttackHandler{
+	return &areaRangedAttackHandler{
 		selectIndexHandler: newSelectIndexHandler(c.Engine()),
 		Radius:             c.Radius,
 		Callback: func(x, y int) action {
 			return newItemAction(consumer, c.Parent.(*item), &[2]int{x, y})
 		},
 	}
-	return noneAction{}
 }
 
 func (c *fireballDamageConsumable) Activate(action *itemAction) error {

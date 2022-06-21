@@ -53,9 +53,7 @@ var (
 )
 
 type eventHandler interface {
-	HandleEvent(keys []ebiten.Key) error
-	EvKeyDown(keys []ebiten.Key) action
-	HandleAction(act action) (bool, error)
+	HandleEvent(keys []ebiten.Key) (eventHandler, error)
 	OnRender(screen *ebiten.Image)
 }
 
@@ -63,12 +61,32 @@ type eventHandlerBase struct {
 	engine *engine
 }
 
-func (e *eventHandlerBase) HandleEvent(keys []ebiten.Key) error {
-	_, err := e.HandleAction(e.EvKeyDown(keys))
-	return err
+func (e *eventHandlerBase) Perform() error {
+	return nil
 }
 
-func (e *eventHandlerBase) EvKeyDown(keys []ebiten.Key) action {
+func (e *eventHandlerBase) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+		if !e.engine.Player.IsAlive() {
+			return &gameOverEventHandler{
+				eventHandlerBase: eventHandlerBase{
+					engine: e.engine,
+				},
+			}, nil
+		}
+	}
+	return e, nil
+}
+
+func (e *eventHandlerBase) EvKeyDown(keys []ebiten.Key) interface{} {
 	player := e.engine.Player
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
@@ -91,15 +109,15 @@ func (e *eventHandlerBase) EvKeyDown(keys []ebiten.Key) action {
 			case ebiten.KeyEscape:
 				return escapeAction{}
 			case ebiten.KeyV:
-				e.engine.EventHandler = newHistoryViewer(e.engine)
+				return newHistoryViewer(e.engine)
 			case ebiten.KeyG:
 				return newPickupAction(e.engine.Player)
 			case ebiten.KeyI:
-				e.engine.EventHandler = newInventoryActivateHandler(e.engine)
+				return newInventoryActivateHandler(e.engine)
 			case ebiten.KeyD:
-				e.engine.EventHandler = newInventoryDropHandler(e.engine)
+				return newInventoryDropHandler(e.engine)
 			case ebiten.KeySlash:
-				e.engine.EventHandler = &lookHandler{selectIndexHandler: newSelectIndexHandler(e.engine)}
+				return &lookHandler{selectIndexHandler: newSelectIndexHandler(e.engine)}
 			default:
 			}
 		}
@@ -137,12 +155,21 @@ type askUserEventHandler struct {
 	eventHandlerBase
 }
 
-func (e *askUserEventHandler) HandleEvent(keys []ebiten.Key) error {
-	_, err := e.HandleAction(e.EvKeyDown(keys))
-	return err
+func (e *askUserEventHandler) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
-func (e *askUserEventHandler) EvKeyDown(keys []ebiten.Key) action {
+func (e *askUserEventHandler) EvKeyDown(keys []ebiten.Key) interface{} {
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
 			continue
@@ -157,21 +184,19 @@ func (e *askUserEventHandler) EvKeyDown(keys []ebiten.Key) action {
 	return noneAction{}
 }
 
-func (e *askUserEventHandler) HandleAction(act action) (bool, error) {
+func (e *askUserEventHandler) HandleAction(act action) (eventHandler, error) {
 	ok, err := e.eventHandlerBase.HandleAction(act)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if ok {
-		e.engine.EventHandler = &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
-		return true, nil
+		return &mainGameEventHandler{eventHandlerBase{engine: e.engine}}, nil
 	}
-	return false, nil
+	return nil, nil
 }
 
 func (e *askUserEventHandler) OnExit() action {
-	e.engine.EventHandler = &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
-	return noneAction{}
+	return &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
 }
 
 type inventoryEventHandler struct {
@@ -229,12 +254,21 @@ func newInventoryActivateHandler(e *engine) *inventoryActivateHandler {
 	}
 }
 
-func (e *inventoryActivateHandler) HandleEvent(keys []ebiten.Key) error {
-	_, err := e.HandleAction(e.EvKeyDown(keys))
-	return err
+func (e *inventoryActivateHandler) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
-func (e *inventoryActivateHandler) EvKeyDown(keys []ebiten.Key) action {
+func (e *inventoryActivateHandler) EvKeyDown(keys []ebiten.Key) interface{} {
 	player := e.engine.Player
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
@@ -275,12 +309,21 @@ func newInventoryDropHandler(e *engine) *inventoryDropHandler {
 	}
 }
 
-func (e *inventoryDropHandler) HandleEvent(keys []ebiten.Key) error {
-	_, err := e.HandleAction(e.EvKeyDown(keys))
-	return err
+func (e *inventoryDropHandler) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
-func (e *inventoryDropHandler) EvKeyDown(keys []ebiten.Key) action {
+func (e *inventoryDropHandler) EvKeyDown(keys []ebiten.Key) interface{} {
 	player := e.engine.Player
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
@@ -331,12 +374,21 @@ func (e *selectIndexHandler) OnRender(screen *ebiten.Image) {
 	text.Draw(screen, string([]rune{0xdb}), e.engine.Font, x*10, y*10, ColorSelect)
 }
 
-func (e *selectIndexHandler) HandleEvent(keys []ebiten.Key) error {
-	_, err := e.HandleAction(e.EvKeyDown(keys))
-	return err
+func (e *selectIndexHandler) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
-func (e *selectIndexHandler) EvKeyDown(keys []ebiten.Key) action {
+func (e *selectIndexHandler) EvKeyDown(keys []ebiten.Key) interface{} {
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
 			continue
@@ -385,12 +437,21 @@ type lookHandler struct {
 	selectIndexHandler
 }
 
-func (e *lookHandler) HandleEvent(keys []ebiten.Key) error {
-	_, err := e.HandleAction(e.EvKeyDown(keys))
-	return err
+func (e *lookHandler) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
-func (e *lookHandler) EvKeyDown(keys []ebiten.Key) action {
+func (e *lookHandler) EvKeyDown(keys []ebiten.Key) interface{} {
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
 			continue
@@ -409,13 +470,12 @@ func (e *lookHandler) EvKeyDown(keys []ebiten.Key) action {
 	return noneAction{}
 }
 
-func (e *lookHandler) OnMouseButtonDown() action {
+func (e *lookHandler) OnMouseButtonDown() eventHandler {
 	return e.OnIndexSelected(e.engine.MouseLocation[0], e.engine.MouseLocation[1])
 }
 
-func (e *lookHandler) OnIndexSelected(x, y int) action {
-	e.engine.EventHandler = &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
-	return noneAction{}
+func (e *lookHandler) OnIndexSelected(x, y int) eventHandler {
+	return &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
 }
 
 type singleRangedAttackHandler struct {
@@ -423,12 +483,21 @@ type singleRangedAttackHandler struct {
 	Callback func(x, y int) action
 }
 
-func (e *singleRangedAttackHandler) HandleEvent(keys []ebiten.Key) error {
-	_, err := e.HandleAction(e.EvKeyDown(keys))
-	return err
+func (e *singleRangedAttackHandler) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
-func (e *singleRangedAttackHandler) EvKeyDown(keys []ebiten.Key) action {
+func (e *singleRangedAttackHandler) EvKeyDown(keys []ebiten.Key) interface{} {
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
 			continue
@@ -461,9 +530,18 @@ type areaRangedAttackHandler struct {
 	Callback func(x, y int) action
 }
 
-func (e *areaRangedAttackHandler) HandleEvent(keys []ebiten.Key) error {
-	_, err := e.HandleAction(e.EvKeyDown(keys))
-	return err
+func (e *areaRangedAttackHandler) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
 func (e *areaRangedAttackHandler) OnRender(screen *ebiten.Image) {
@@ -474,7 +552,7 @@ func (e *areaRangedAttackHandler) OnRender(screen *ebiten.Image) {
 	drawRange(screen, x*10-e.Radius*10-10, y*10-e.Radius*10-20, int(math.Pow(float64(e.Radius), 2))*10, int(math.Pow(float64(e.Radius), 2))*10, e.engine.Font, ColorRed)
 }
 
-func (e *areaRangedAttackHandler) EvKeyDown(keys []ebiten.Key) action {
+func (e *areaRangedAttackHandler) EvKeyDown(keys []ebiten.Key) interface{} {
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
 			continue
@@ -509,12 +587,21 @@ type gameOverEventHandler struct {
 	eventHandlerBase
 }
 
-func (e *gameOverEventHandler) HandleEvent(keys []ebiten.Key) error {
-	_, err := e.HandleAction(e.EvKeyDown(keys))
-	return err
+func (e *gameOverEventHandler) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
-func (e *gameOverEventHandler) EvKeyDown(keys []ebiten.Key) action {
+func (e *gameOverEventHandler) EvKeyDown(keys []ebiten.Key) interface{} {
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
 			continue
@@ -557,12 +644,21 @@ func newHistoryViewer(e *engine) *historyViewer {
 	}
 }
 
-func (e *historyViewer) HandleEvent(keys []ebiten.Key) error {
-	_ = e.EvKeyDown(keys)
-	return nil
+func (e *historyViewer) HandleEvent(keys []ebiten.Key) (eventHandler, error) {
+	state := e.EvKeyDown(keys)
+	if h, ok := state.(eventHandler); ok {
+		return h, nil
+	}
+	if a, ok := state.(action); ok {
+		_, err := e.HandleAction(a)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
-func (e *historyViewer) EvKeyDown(keys []ebiten.Key) action {
+func (e *historyViewer) EvKeyDown(keys []ebiten.Key) interface{} {
 	for _, p := range keys {
 		if !repeatingKeyPressed(p) {
 			continue
@@ -582,7 +678,7 @@ func (e *historyViewer) EvKeyDown(keys []ebiten.Key) action {
 			case ebiten.KeyEnd:
 				e.Cursor = e.LogLength - 1
 			default:
-				e.engine.EventHandler = &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
+				return &mainGameEventHandler{eventHandlerBase{engine: e.engine}}
 			}
 		}
 	}
